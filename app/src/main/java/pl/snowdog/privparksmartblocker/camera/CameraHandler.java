@@ -41,7 +41,6 @@ public class CameraHandler {
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             Log.d(TAG, "Opened camera.");
             mCameraDevice = cameraDevice;
-            takePicture();
         }
         @Override
         public void onDisconnected(@NonNull CameraDevice cameraDevice) {
