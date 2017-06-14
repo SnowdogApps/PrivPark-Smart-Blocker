@@ -39,8 +39,6 @@ public class MainActivity extends Activity implements DistanceListener {
         initCamera();
         initUltraSonicSensor();
         initLED();
-
-
         Log.d(TAG, "Available GPIO: " + mService.getGpioList());
     }
 
@@ -76,7 +74,6 @@ public class MainActivity extends Activity implements DistanceListener {
 
     private void initLED(){
         try{
-
             mWhiteLED = mService.openGpio(LED_WHITE_PIN);
             mWhiteLED.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
             mWhiteLED.setValue(false);
@@ -112,6 +109,7 @@ public class MainActivity extends Activity implements DistanceListener {
         super.onDestroy();
         try {
             mUltrasonicSensorDriver.close();
+            mWhiteLED.close();
 
         } catch (Exception e) {
             e.printStackTrace();
