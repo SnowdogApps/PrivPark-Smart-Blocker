@@ -1,0 +1,73 @@
+{
+  "project_info": {
+    "project_number": "909084684057",
+    "firebase_url": "https://privpark-633bb.firebaseio.com",
+    "project_id": "privpark-633bb",
+    "storage_bucket": "privpark-633bb.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:909084684057:android:697c140b64ce334d",
+        "android_client_info": {
+          "package_name": "pl.snowdog.privparksmartblocker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "909084684057-pe7ddfjljmgsj31gfijku2siiaqtb0v6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb6_qI8pojfheT3mo8oCo85ls1P24eTbw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:909084684057:android:6212d2e3a44b30fe",
+        "android_client_info": {
+          "package_name": "pl.snowdog.privpark"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "909084684057-pe7ddfjljmgsj31gfijku2siiaqtb0v6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb6_qI8pojfheT3mo8oCo85ls1P24eTbw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

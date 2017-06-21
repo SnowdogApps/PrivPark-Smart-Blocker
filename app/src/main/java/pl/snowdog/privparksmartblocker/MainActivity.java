@@ -9,20 +9,24 @@ import android.util.Log;
 
 import com.google.android.things.contrib.driver.ultrasonicsensor.DistanceListener;
 import com.google.android.things.contrib.driver.ultrasonicsensor.UltrasonicSensorDriver;
-import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.PeripheralManagerService;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
-import java.io.IOException;
 
 import pl.snowdog.privparksmartblocker.camera.CameraHandler;
 import pl.snowdog.privparksmartblocker.camera.ImagePreprocessor;
+import pl.snowdog.privparksmartblocker.config.BoardConfig;
+import pl.snowdog.privparksmartblocker.config.GeneralConfig;
+import pl.snowdog.privparksmartblocker.db.DatabaseListener;
+import pl.snowdog.privparksmartblocker.db.RemoteDbProvider;
+import pl.snowdog.privparksmartblocker.led.LedManager;
 
-public class MainActivity extends Activity implements DistanceListener {
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.DELTA;
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.DISTANCE_ARRAY_SIZE;
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.INTERVAL_BETWEEN_BLINKS_MS;
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.MEASURE_ERROR;
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.MIN_FREE_SPOT_DISTANCE;
+import static pl.snowdog.privparksmartblocker.config.GeneralConfig.MIN_PHOTO_DISTANCE;
+
+public class MainActivity extends Activity implements DistanceListener, DatabaseListener {
 
     private final String TAG = this.getClass().getName();
     private CameraHandler mCameraHandler;
@@ -30,55 +34,38 @@ public class MainActivity extends Activity implements DistanceListener {
     private boolean mIsPhotoTaken = false;
     private boolean mBlinking = true;
     private UltrasonicSensorDriver mUltrasonicSensorDriver;
-    PeripheralManagerService mService;
-    private static final int INTERVAL_BETWEEN_BLINKS_MS = 100;
-    private static final String TRIGGER_PIN = "BCM5";
-    private static final String ECHO_PIN = "BCM6";
-    private static final String LED_WHITE_PIN = "BCM17";
-    private static final String LED_YELLOW_PIN = "BCM27";
-    private static final String LED_GREEN_PIN = "BCM22";
-    private static final String LED_RED_PIN = "BCM23";
-    private static final int DISTANCE_ARRAY_SIZE = 3;
-    private Gpio mWhiteLED;
-    private Gpio mYellowLED;
-    private Gpio mGreenED;
-    private Gpio mRedLED;
+    private PeripheralManagerService mService;
     private Handler mHandler = new Handler();
-    private FirebaseDatabase mDatabase;
-    private double DELTA = 5.0;
-    private int MIN_PHOTO_DISTANCE = 20;
 
     private double[] mTempDistance = new double[DISTANCE_ARRAY_SIZE];
     private int mDistanceCounter = 0;
+
+    private RemoteDbProvider mDbProvider;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mService = new PeripheralManagerService();
+        initDb();
         initCamera();
         initUltraSonicSensor();
-        initLED();
-        initDb();
+        LedManager.initLED(mService);
         initTempDistanceArray();
         Log.d(TAG, "Available GPIO: " + mService.getGpioList());
     }
 
     @Override
     public void onDistanceChange(double distanceInCm) {
-        if (distanceInCm < 1000) {
-            Log.d("Distance", distanceInCm + " cm");
-            if (distanceInCm < MIN_PHOTO_DISTANCE && isCarPark(distanceInCm)) {
-                loadPhoto();
-            } else {
-                if (distanceInCm > 100) {
-
-                    mIsPhotoTaken = false;
-                    try {
-                        mGreenED.setValue(false);
-                        mYellowLED.setValue(true);
-                        mRedLED.setValue(false);
-                        mWhiteLED.setValue(false);
-                    } catch (IOException e) {
+        if (mDbProvider.isSpotAvailable()) {
+            if (distanceInCm < MEASURE_ERROR) {
+                Log.d("Distance", distanceInCm + " cm");
+                if (distanceInCm < MIN_PHOTO_DISTANCE && isCarPark(distanceInCm)) {
+                    loadPhoto();
+                } else {
+                    if (distanceInCm > MIN_FREE_SPOT_DISTANCE) {
+                        mIsPhotoTaken = false;
+                        LedManager.turnOnYellowLedOnly();
+                        mDbProvider.setState(false);
                     }
                 }
             }
@@ -100,81 +87,15 @@ public class MainActivity extends Activity implements DistanceListener {
     }
 
     private void initUltraSonicSensor() {
-        mUltrasonicSensorDriver = new UltrasonicSensorDriver(TRIGGER_PIN,
-                ECHO_PIN, this);
+        mUltrasonicSensorDriver = new UltrasonicSensorDriver(BoardConfig.getUltrasonicTriggerPin(),
+                BoardConfig.getUltrasonicEchoPin(), this);
     }
 
     private void initDb() {
-        mDatabase = FirebaseDatabase.getInstance();
-        DatabaseReference stateReference = mDatabase.getReference("state");
-        stateReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                boolean value = dataSnapshot.getValue(boolean.class);
-                if (value) {
-                    try {
-                        mGreenED.setValue(true);
-                        mYellowLED.setValue(false);
-                        mRedLED.setValue(false);
-                        mWhiteLED.setValue(false);
-                    } catch (IOException e) {
-                    }
-                    mBlinking = false;
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                mBlinking = false;
-            }
-        });
-        DatabaseReference spotAvailabilityReference = mDatabase.getReference("spot_available");
-        spotAvailabilityReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                boolean value = dataSnapshot.getValue(boolean.class);
-                if (!value) {
-                    try {
-                        mGreenED.setValue(false);
-                        mYellowLED.setValue(false);
-                        mRedLED.setValue(true);
-                        mWhiteLED.setValue(false);
-                    } catch (IOException e) {
-                    }
-                } else {
-                    try {
-                        mWhiteLED.setValue(false);
-                        mGreenED.setValue(false);
-                        mYellowLED.setValue(true);
-                        mRedLED.setValue(false);
-                    } catch (IOException e) {
-                    }
-                }
-            }
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        });
+        mDbProvider = new RemoteDbProvider();
+        mDbProvider.initDb(this);
     }
 
-    private void initLED() {
-        try {
-            mWhiteLED = mService.openGpio(LED_WHITE_PIN);
-            mWhiteLED.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-
-            mGreenED = mService.openGpio(LED_GREEN_PIN);
-            mGreenED.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-
-            mYellowLED = mService.openGpio(LED_YELLOW_PIN);
-            mYellowLED.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-            mYellowLED.setValue(true);
-            mRedLED = mService.openGpio(LED_RED_PIN);
-            mRedLED.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-
-        } catch (IOException e) {
-            Log.e(TAG, "LED not found");
-        }
-    }
 
     private void initTempDistanceArray() {
         for (int i = 0; i < mTempDistance.length; i++) {
@@ -185,11 +106,7 @@ public class MainActivity extends Activity implements DistanceListener {
 
     private void onPhotoReady(Bitmap bitmap) {
         Log.d(TAG, "Photo ready");
-        try {
-            mWhiteLED.setValue(false);
-        } catch (IOException e) {
-            Log.e(TAG, "LED not found");
-        }
+        LedManager.turnOffWhiteLed();
         mBlinking = true;
         mHandler.removeCallbacks(mBlinkRunnable);
         mHandler.postDelayed(mBlinkRunnable, INTERVAL_BETWEEN_BLINKS_MS);
@@ -199,25 +116,23 @@ public class MainActivity extends Activity implements DistanceListener {
     private void loadPhoto() {
         if (!mIsPhotoTaken) {
             Log.d(TAG, "Take a photo");
-            try {
-                mWhiteLED.setValue(true);
-            } catch (IOException e) {
-                Log.e(TAG, "LED not found");
-            }
+            LedManager.turnOnWhiteLed();
             mCameraHandler.takePicture();
             mIsPhotoTaken = true;
         }
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        LedManager.closeAllPins();
         try {
             mUltrasonicSensorDriver.close();
-            mWhiteLED.close();
-            mYellowLED.close();
-            mRedLED.close();
-            mGreenED.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -228,35 +143,27 @@ public class MainActivity extends Activity implements DistanceListener {
         @Override
         public void run() {
 
-            if (mYellowLED == null) {
-                return;
+            LedManager.negateYellowLedState();
+            Log.d(TAG, "blinking: " + mBlinking);
+            if (mBlinking) {
+                mHandler.postDelayed(mBlinkRunnable, INTERVAL_BETWEEN_BLINKS_MS);
             }
-            try {
-                mYellowLED.setValue(!mYellowLED.getValue());
-                Log.d(TAG, "blinking: " + mBlinking);
-                if (mBlinking) {
-                    mHandler.postDelayed(mBlinkRunnable, INTERVAL_BETWEEN_BLINKS_MS);
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Error on PeripheralIO API", e);
-            }
+
         }
     };
+
     private void startRecognition(Bitmap bitmap) {
-        DatabaseReference myRef = mDatabase.getReference("car_plate");
-        myRef.setValue("ZZ 1235556");
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                try {
+        mDbProvider.setCarPlate("zz 1256");
+        if (GeneralConfig.OFFLINE_MODE) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
                     mBlinking = false;
                     mHandler.removeCallbacks(mBlinkRunnable);
-                    mYellowLED.setValue(false);
-                    mGreenED.setValue(true);
-                } catch (IOException e) {
+                    LedManager.turnOnGreenLedOnly();
                 }
-            }
-        }, 2000);
+            }, 2000);
+        }
     }
 
     private boolean isCarPark(double distance) {
@@ -270,7 +177,6 @@ public class MainActivity extends Activity implements DistanceListener {
             sum += mTempDistance[i] - mTempDistance[i - 1];
             Log.d(TAG, "table: " + mTempDistance[i]);
         }
-        Log.d(TAG, "sum: " + sum);
         double average = sum / DISTANCE_ARRAY_SIZE;
         Log.d(TAG, "average: " + average);
         if (Math.abs(average) < DELTA) {
@@ -278,5 +184,26 @@ public class MainActivity extends Activity implements DistanceListener {
         } else {
             return false;
         }
+
+    }
+
+    @Override
+    public void onDbStateChange(boolean value) {
+        if (value) {
+            mBlinking = false;
+            mHandler.removeCallbacks(mBlinkRunnable);
+            LedManager.turnOnGreenLedOnly();
+        }
+
+    }
+
+    @Override
+    public void onDbSpotAvailabilityChange(boolean value) {
+        if (!value) {
+            LedManager.turnOnRedLedOnly();
+        } else {
+            LedManager.turnOnYellowLedOnly();
+        }
+
     }
 }
