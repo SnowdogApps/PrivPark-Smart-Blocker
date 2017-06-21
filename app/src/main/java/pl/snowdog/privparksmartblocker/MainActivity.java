@@ -123,11 +123,6 @@ public class MainActivity extends Activity implements DistanceListener, Database
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
         LedManager.closeAllPins();
