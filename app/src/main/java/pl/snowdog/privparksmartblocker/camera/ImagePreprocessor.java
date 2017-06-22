@@ -1,11 +1,8 @@
 package pl.snowdog.privparksmartblocker.camera;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.Image;
-
-import junit.framework.Assert;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,32 +15,28 @@ public class ImagePreprocessor {
     private Bitmap croppedBitmap;
 
     public ImagePreprocessor() {
-        this.croppedBitmap = Bitmap.createBitmap(Helper.IMAGE_SIZE, Helper.IMAGE_SIZE,
+        this.croppedBitmap = Bitmap.createBitmap(CameraHandler.WIDTH, CameraHandler.HEIGHT,
                 Bitmap.Config.ARGB_8888);
         this.rgbFrameBitmap = Bitmap.createBitmap(CameraHandler.WIDTH,
                 CameraHandler.HEIGHT, Bitmap.Config.ARGB_8888);
     }
 
-    public Bitmap preprocessImage(final Image image, Context context) {
+    public Bitmap preprocessImage(final Image image) {
         if (image == null) {
             return null;
         }
-
-        Assert.assertEquals("Invalid size width", rgbFrameBitmap.getWidth(), image.getWidth());
-        Assert.assertEquals("Invalid size height", rgbFrameBitmap.getHeight(), image.getHeight());
-
         if (croppedBitmap != null && rgbFrameBitmap != null) {
             ByteBuffer bb = image.getPlanes()[0].getBuffer();
             rgbFrameBitmap = BitmapFactory.decodeStream(new ByteBufferBackedInputStream(bb));
-            Helper.cropAndRescaleBitmap(rgbFrameBitmap, croppedBitmap, 0);
+            Helper.cropAndRescaleBitmap(rgbFrameBitmap, croppedBitmap, 180);
         }
 
         image.close();
 
-        // For debugging
-        if (SAVE_PREVIEW_BITMAP) {
-            Helper.saveBitmap(croppedBitmap, context);
-        }
+            if (SAVE_PREVIEW_BITMAP) {
+                Helper.saveBitmap(croppedBitmap);
+            }
+
         return croppedBitmap;
     }
 

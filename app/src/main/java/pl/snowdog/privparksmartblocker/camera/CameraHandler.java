@@ -19,8 +19,8 @@ import java.util.Collections;
 public class CameraHandler {
 
     private  final String TAG = this.getClass().getName() ;
-    public static final int WIDTH = 640;
-    public static final int HEIGHT = 480;
+    public static final int WIDTH = 2048;
+    public static final int HEIGHT = 1520;
 
     private static final int MAX_IMAGES = 1;
     private ImageReader mImageReader;
